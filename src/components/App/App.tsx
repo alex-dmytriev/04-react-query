@@ -7,68 +7,65 @@ import { type Movie } from "../../types/movie";
 import MovieGrid from "../MovieGrid/MovieGrid";
 import ErrorMessage from "../ErrorMessage/ErrorMessage";
 import MovieModal from "../MovieModal/MovieModal";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import ReactPaginate from "react-paginate";
+import css from "./App.module.css";
 
 const App = () => {
   //=== States ===
   const [query, setQuery] = useState<string>("");
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [loader, setLoader] = useState<boolean>(false);
-  const [error, setError] = useState<boolean>(false);
   const [clickedMovie, setClickedMovie] = useState<Movie | null>(null);
+  const [page, setPage] = useState<number>(1);
 
   //=== Handlers ===
   const handleSearch = (searchTerm: string) => {
     setQuery(searchTerm);
   };
 
-  //=== Effects ===
+  //=== Hooks ===
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["movies", query, page],
+    queryFn: () => fetchMovies(query, page),
+    enabled: !!query,
+    placeholderData: keepPreviousData,
+  });
+
   useEffect(() => {
-    // First mount blank query check
-    if (!query) {
-      return;
+    if (data && data.results.length === 0) {
+      toast.error("No movies found for your request");
     }
+  });
 
-    const getMovies = async (): Promise<void> => {
-      try {
-        setLoader(true);
-        setError(false);
-
-        const resultData = await fetchMovies(query);
-        // Check if the resut is an empty array
-        if (resultData.results.length === 0) {
-          toast.error("No movies found for your request");
-          return;
-        }
-        setMovies(resultData.results);
-      } catch {
-        setError(true);
-      } finally {
-        setLoader(false);
-      }
-    };
-
-    getMovies();
-
-    //Search result cleanup before performing the next one.
-    return () => {
-      setMovies([]);
-    };
-  }, [query]);
+  const totalPages = data?.total_pages ?? 0; // condition check: if data is null or und, use 0
 
   return (
     <>
       <SearchBar onSubmit={handleSearch} />
       <Toaster position="top-center" reverseOrder={false} />
-      {loader && <Loader />}
-      {error && <ErrorMessage />}
-      {!error && movies.length !== 0 && (
-        <MovieGrid movies={movies} onSelect={setClickedMovie} />
+
+      {isLoading && <Loader />}
+      {isError && <ErrorMessage />}
+      {!isError && data && data.results.length !== 0 && (
+        <MovieGrid movies={data.results} onSelect={setClickedMovie} />
       )}
 
       {clickedMovie && (
         <MovieModal
           movie={clickedMovie}
           onClose={() => setClickedMovie(null)}
+        />
+      )}
+      {totalPages > 1 && (
+        <ReactPaginate
+          pageCount={totalPages}
+          pageRangeDisplayed={5}
+          marginPagesDisplayed={1}
+          onPageChange={({ selected }) => setPage(selected + 1)}
+          forcePage={page - 1}
+          containerClassName={css.pagination}
+          activeClassName={css.active}
+          nextLabel="→"
+          previousLabel="←"
         />
       )}
     </>
