@@ -19,11 +19,12 @@ const App = () => {
 
   //=== Handlers ===
   const handleSearch = (searchTerm: string) => {
+    setPage(1);
     setQuery(searchTerm);
   };
 
   //=== Hooks ===
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isSuccess } = useQuery({
     queryKey: ["movies", query, page],
     queryFn: () => fetchMovies(query, page),
     enabled: !!query,
@@ -34,7 +35,7 @@ const App = () => {
     if (data && data.results.length === 0) {
       toast.error("No movies found for your request");
     }
-  });
+  }, [data, isSuccess]);
 
   const totalPages = data?.total_pages ?? 0; // condition check: if data is null or und, use 0
 
@@ -55,7 +56,7 @@ const App = () => {
           onClose={() => setClickedMovie(null)}
         />
       )}
-      {totalPages > 1 && (
+      {isSuccess && totalPages > 1 && (
         <ReactPaginate
           pageCount={totalPages}
           pageRangeDisplayed={5}
